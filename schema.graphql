@@ -1,0 +1,19 @@
+schema {
+  query: QueryRoot
+}
+
+type QueryRoot {
+  answer: Int!
+}
+
+type Person {
+  name: String!
+  age: Int!
+  career: [Career!]!
+}
+
+type Career {
+  name: String!
+  start: Int!
+  end: Int!
+}
