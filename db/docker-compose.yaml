@@ -1,0 +1,30 @@
+version: '3.6'
+services:
+  postgres:
+    image: postgres:14
+    ports:
+      - "54321:5432"
+    container_name: "person_db"
+    expose:
+      - 5432
+    volumes:
+      - ./initdb:/docker-entrypoint-initdb.d
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: person_db
+
+  pgadmin:
+    image: dpage/pgadmin4
+    ports:
+      - 18080:80
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    volumes:
+      - pgadmin:/var/lib/pgadmin
+    depends_on:
+      - postgres
+
+volumes:
+  pgadmin: null
