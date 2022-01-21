@@ -1,6 +1,6 @@
 create table person (
   id serial primary key,
-  name varchar(255) not null,
+  name varchar(255) not null unique,
   age int not null,
   created_at timestamp not null
 );

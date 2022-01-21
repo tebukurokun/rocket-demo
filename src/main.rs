@@ -1,27 +1,89 @@
 use anyhow::Result;
 use async_graphql::{
     http::{playground_source, GraphQLPlaygroundConfig},
-    EmptyMutation, EmptySubscription, Object, Schema,
+    EmptySubscription, InputObject, Object, Schema, SimpleObject,
 };
 
 use async_graphql_rocket::{GraphQLQuery, GraphQLRequest, GraphQLResponse};
+use chrono::NaiveDateTime;
 use rocket::{response::content, State};
+use sqlx::prelude::*;
 use sqlx::{postgres::PgPoolOptions, PgPool};
 
 struct QueryRoot;
 
 #[Object]
 impl QueryRoot {
-    async fn answer(&self, ctx: &async_graphql::Context<'_>) -> Result<i32> {
-        let pool = ctx
-            .data::<PgPool>()
-            .map_err(|e| anyhow::anyhow!("{:?}", e))?;
+    async fn answer(&self, ctx: &async_graphql::Context<'_>) -> Result<i32, async_graphql::Error> {
+        let pool = ctx.data::<PgPool>()?;
         let (answer,): (i32,) = sqlx::query_as("select 20").fetch_one(pool).await?;
         Ok(answer)
     }
 }
 
-type PersonSchema = Schema<QueryRoot, EmptyMutation, EmptySubscription>;
+#[derive(SimpleObject)]
+struct Person {
+    id: i32,
+    name: String,
+    age: i32,
+}
+
+#[derive(InputObject)]
+struct CreatePersonInput {
+    name: String,
+    age: i32,
+}
+
+#[derive(Debug, FromRow)]
+struct PersonRecord {
+    id: i32,
+    name: String,
+    age: i32,
+    created_at: NaiveDateTime,
+}
+
+struct MutationRoot;
+
+#[Object]
+impl MutationRoot {
+    async fn create_person(
+        &self,
+        ctx: &async_graphql::Context<'_>,
+        input: CreatePersonInput,
+    ) -> Result<Person, async_graphql::Error> {
+        let pool = ctx.data::<PgPool>()?;
+        let mut tx = pool.begin().await?;
+        let sql = "
+            insert into person (
+                name, age, created_at
+            ) 
+            values 
+            (
+                $1, $2, current_timestamp
+            ) 
+            returning id, name, age, created_at
+            ;
+        ";
+
+        let person_record: PersonRecord = sqlx::query_as(sql)
+            .bind(input.name)
+            .bind(input.age)
+            .fetch_one(&mut tx)
+            .await?;
+
+        let gql_person = Person {
+            id: person_record.id,
+            name: person_record.name,
+            age: person_record.age,
+        };
+
+        tx.commit().await?;
+
+        Ok(gql_person)
+    }
+}
+
+type PersonSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
 
 #[rocket::get("/")]
 fn graphql_playground() -> content::Html<String> {
@@ -45,8 +107,7 @@ async fn rocket() -> _ {
         .connect("postgres://user:password@localhost:54321/person_db")
         .await
         .unwrap();
-    let query_root = QueryRoot;
-    let schema = Schema::build(query_root, EmptyMutation, EmptySubscription)
+    let schema = Schema::build(QueryRoot, MutationRoot, EmptySubscription)
         .data(pool)
         .finish();
 

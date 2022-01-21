@@ -1,9 +1,12 @@
 schema {
   query: QueryRoot
+  mutation: MutationRoot
 }
 
 type QueryRoot {
   answer: Int!
+  person(id: Int!): Person
+  personByName(name: String!): Person
 }
 
 type Person {
@@ -16,4 +19,13 @@ type Career {
   name: String!
   start: Int!
   end: Int!
+}
+
+type MutationRoot {
+  createPerson(input: CreatePersonInput!): Person!
+}
+
+input CreatePersonInput {
+  name: String!
+  age: Int!
 }
