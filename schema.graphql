@@ -17,8 +17,8 @@ type Person {
 
 type Career {
   name: String!
-  start: Int!
-  end: Int!
+  startYear: Int!
+  endYear: Int!
 }
 
 type MutationRoot {
@@ -28,4 +28,11 @@ type MutationRoot {
 input CreatePersonInput {
   name: String!
   age: Int!
+  career: [CreateCareerInput!]!
+}
+
+type CreateCareerInput {
+  name: String!
+  startYear: Int!
+  endYear: Int!
 }
